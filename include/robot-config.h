@@ -1,3 +1,10 @@
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <v5.h>
+#include <v5_vcs.h>
+
 using namespace vex;
 
 extern brain Brain;
@@ -14,7 +21,6 @@ extern motor flywheel;
 extern motor flywheel2;
 extern motor indexer;
 extern inertial Inertial10;
-
 
 
 void driverControl();

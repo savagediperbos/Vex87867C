@@ -1,88 +1,63 @@
-#include <vex.h>
 #include <robot-config.h>
 #include <iostream>
 
-// Flywheel Configuration
-double maxRPM = 400.0; // higher rpm value in toggle
-double minRPM = 300.0; // lower rpm value in toggle
-double kp = 0.5;
-double ki = 0.01;
-double kd = 0.5;
-double integralStart = 10; // rpm from desired when integral activates
-double desiredRPM = maxRPM;
-
-int frontLeft() {
-  while (true) {
-    FL.spin(forward, Controller1.Axis3.value() + Controller1.Axis1.value() + Controller1.Axis4.value(), percent);
+int printStuff() {
+  while(true) {
+    //std::cout << indexer.temperature(percent) << std::endl;
+    //std::cout << flywheel.velocity(rpm) << std::endl;
+    //std::cout << flywheel2.velocity(rpm) << std::endl;
+    
+    std::cout << std::endl;
+    wait(70,msec);
   }
 }
 
-int frontRight() {
+int runDrivetrain() {
   while (true) {
-    FR.spin(forward, Controller1.Axis3.value() - Controller1.Axis1.value() - Controller1.Axis4.value(), percent);
-  }
-}
-
-int backLeft() {
-  while (true) {
-    BL.spin(forward, Controller1.Axis3.value() + Controller1.Axis1.value() - Controller1.Axis4.value(), percent);
-  }
-}
-
-int backRight() {
-  while (true) {
-    BR.spin(forward, Controller1.Axis3.value() - Controller1.Axis1.value() + Controller1.Axis4.value(), percent);
+    FL.spin(forward, (Controller1.Axis3.value() + Controller1.Axis1.value() + Controller1.Axis4.value()) * 12 / 127, volt);
+    FR.spin(forward, (Controller1.Axis3.value() - Controller1.Axis1.value() - Controller1.Axis4.value()) * 12 / 127, volt);
+    BL.spin(forward, (Controller1.Axis3.value() + Controller1.Axis1.value() - Controller1.Axis4.value()) * 12 / 127, volt);
+    BR.spin(forward, (Controller1.Axis3.value() - Controller1.Axis1.value() + Controller1.Axis4.value()) * 12 / 127, volt);
+    wait(10,msec);
   }
 }
 
 int indexerShoot() {
   while (true) {
+    //90
     if (Controller1.ButtonR1.pressing()) {
-      // activates indexer and shoots one time
-      indexer.spinFor(-43.0, degrees, 200, rpm);
-      indexer.spinFor(46.0, degrees, 200, rpm);
+      indexer.spin(reverse, 10, volt);
+      wait(100,msec);
+      indexer.spin(forward, 10, volt);
+      wait(100,msec);
+      indexer.stop();
+    wait(10,msec);
     }
   }
 }
+double maxRPM = 340.0; // higher rpm value in toggle
+double minRPM = 340.0; // lower rpm value in toggle
+double desiredRPM = minRPM;
 
 int flywheelSpin() {
-  double error = 0;
-  double prevError = 0;
-  double totalError = 0;
-  double spinPower = 0;
-  bool flywheelStopped = true; // keeps track of flywheel motion status
+  double spinPower;
   while (true) {
     if (Controller1.ButtonB.pressing()) {
-      error = desiredRPM - (-1 * flywheel.velocity(rpm));
-      if (error != 0 && abs(error) < integralStart) {
-        totalError += error;
-      }
-      else {
-        totalError = 0;
-      }
-      spinPower = (error * kp) + (totalError * ki) + ((error - prevError) * kd);
-      if (spinPower < 0) {
-        spinPower = 0;
-      }
+      spinPower = (abs(flywheel.velocity(rpm)) <= desiredRPM) ? 12 : 7.3;
       flywheel.spin(reverse, spinPower, volt);
       flywheel2.spin(reverse, spinPower, volt);
-      prevError = error;
-      flywheelStopped = false;
+    wait(10,msec);
     }
-    else if (!flywheelStopped) {
+    else {
       flywheel.stop();
       flywheel2.stop();
-      error = 0;
-      prevError = 0;
-      totalError = 0;
-      spinPower = 0;
-      flywheelStopped = true;
     }
   }
 }
 
+bool flywheelVelocityMax = false; // DO NOT TOUCH - keeps track of flywheel desired rpm for rpm toggle
+    
 int flywheelToggle() {
-  bool flywheelVelocityMax = false; // DO NOT TOUCH - keeps track of flywheel desired rpm for rpm toggle
   while (true) {
     if (Controller1.ButtonY.pressing()) {
       // toggles flywheel velocity between max rpm (default) and minimum rpm
@@ -96,6 +71,7 @@ int flywheelToggle() {
         flywheelVelocityMax = true;
         wait(200, msec);
       }
+      wait(10,msec);
     }
   }
 }
@@ -132,10 +108,10 @@ int intakeToggle() {
       curCommand = 4;
     }
     if (!intakeStopped && !intakeIn) {
-      intakeroller.spin(reverse);
+      intakeroller.spin(reverse, 12, volt);
     }
     else if (!intakeStopped && intakeIn) {
-      intakeroller.spin(forward);
+      intakeroller.spin(forward, 10, volt);
     }
     else if (intakeStopped) {
       intakeroller.stop();
@@ -145,16 +121,15 @@ int intakeToggle() {
     }
     firstIter = false;
     lastCommand = curCommand;
+    wait(10,msec);
   }
 }
 
-void driverControl(void) {
-  task rc_frontLeft(frontLeft);
-  task rc_frontRight(frontRight);
-  task rc_backLeft(backLeft);
-  task rc_backRight(backRight);
-  task rc_indexerShoot(indexerShoot);
-  task rc_flywheelSpin(flywheelSpin);
-  task rc_flywheelToggle(flywheelToggle);
-  task rc_intakeToggle(intakeToggle);
+void driverControl() {
+  //task data(printStuff);
+
+  task t_chassis(runDrivetrain);
+  task t_indexer(indexerShoot);
+  task t_flywheel(flywheelSpin);
+  task t_intake(intakeToggle);
 }

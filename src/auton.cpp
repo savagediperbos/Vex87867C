@@ -1,79 +1,44 @@
-#include <vex.h>
 #include <robot-config.h>
 #include <iostream>
 
 // Drivetrain PID Configuration
-double kP = 0.011; // proportional component - improve rise and settling time
-double kI = 0.002; // integral component - corrects undershooting
-double kD = 0.06; // derivative component - speeds up and slows down (dampener)
-double turnkP = 0.115;
-double turnkI = 0.0048;
-double turnkD = 0.2;
+double kP = 0.016; // proportional component - improve rise and settling time
+double kI = 0.001; // integral component - corrects undershooting
+double kD = 0.124; // derivative component - speeds up and slows down (dampener)
+double integralBound = 15; // only calculate total lateral error within the bound
+double turnkP = 0.34;
+double turnkI = 0.006;
+double turnkD = 3.75;
+double turnBound = 5; // only calculate total turn error within the bound
 
-// integral caps
-double maxIntegral = 300;
-double maxTurnIntegral = 300;
-
-double integralBound = 40; // If error is outside the bounds, then apply the integral. This is a buffer with +-integralBound degrees
-double turnBound = 15;
-double averagePosition;
-
-// motor values
-double lateralPower;
-double turnPower;
-
-// auton settings
+// DO NOT TOUCH
 double desiredValue;
 double desiredTurnValue;
-
-// PID calculations
-double error; // sensorvalue (current) - desiredValue : positional value -> speed -> acc
-double prevError = 0; // position 20 miliseconds ago
-double totalError = 0; // totalError = totalError + error (keeps adding error/ covenrts position into absement)
-
-double turnError; // sensorValue - desiredValue : position
-double turnPrevError = 0; // position 20 miliseconds ago
-double turnTotalError = 0; // totalError = totalError + error
-
-// DO NOT TOUCH - bool for starting/ending auton
 bool enableDrivePID = true;
 
-double signnum_c(double x) { //evaluate later
-  // checks values so total errors remain positive
-  if (x > 0.0) {
-    return 1.0;
-  }
-  if (x < 0.0) {
-    return -1.0;
-  }
-  return x;
-}
-
-void resetEncoders() {
-  void suspend(int drivePID);
-  desiredValue = 0;
-  desiredTurnValue = 0;
-  LEncoder.setPosition(0,deg);
-  REncoder.setPosition(0,deg);
-  Inertial10.setRotation(0,deg); //try setHeading if doesnt work
-  void resume(int drivePID);
-}
-
-void move(double moving) {
-  desiredValue = moving;
-  wait(500,msec);
-  resetEncoders();
-}
-
-void turnL(double turning) {
-  desiredTurnValue = turning;
-  wait(2000,msec);
-  resetEncoders();
-}
-
-int drivePID() {
+int drivePID() { // PROGRAM TO CALCULATE FIRST ITERATION LASTERROR RESET
+  double averagePosition;
+  double lateralPower;
+  double turnPower;
+  double adjAngle;
+  double error; // sensorvalue (current) - desiredValue : positional value -> speed -> acc
+  double prevError = desiredValue; // position 20 miliseconds ago
+  double totalError = 0; // totalError = totalError + error (keeps adding error/ covenrts position into absement)
+  double turnError; // sensorValue - desiredValue : position
+  double turnPrevError = desiredTurnValue; // position 20 miliseconds ago
+  double turnTotalError = 0; // totalError = totalError + error
+  double lateralDeriv;
+  double turnDeriv;
   while (enableDrivePID) {
-    averagePosition = (-1 * LEncoder.position(degrees)) + (-1 * REncoder.position(degrees));
+    
+    averagePosition = -0.5 * (LEncoder.position(deg) + REncoder.position(deg));
+    if (Inertial10.angle(deg) <= 180) {
+      adjAngle = Inertial10.angle(deg);
+    }
+    else if (Inertial10.angle(deg) > 180) {
+      adjAngle = -1 * (360 - Inertial10.angle(deg));
+    }
+    
     error = desiredValue - averagePosition;
     if (abs(error) < integralBound) {
       totalError += error; 
@@ -81,53 +46,174 @@ int drivePID() {
     else {
       totalError = 0; 
     }
-    totalError = abs(totalError) > maxIntegral ? signnum_c(totalError) * maxIntegral : totalError;
-    lateralPower = (error * kP) + (totalError * kI) + ((error - prevError) * kD);
+    lateralDeriv = error - prevError;
     
-    turnError = desiredTurnValue - Inertial10.angle(degrees);
+    turnError = desiredTurnValue - adjAngle;
     if (abs(turnError) < turnBound) {
       turnTotalError += turnError;
     }
     else {
       turnTotalError = 0;
     }
-    turnTotalError = abs(turnTotalError) > maxTurnIntegral ? signnum_c(turnTotalError) * maxTurnIntegral : turnTotalError;
-    turnPower = (turnError * turnkP) + (turnTotalError * turnkI) + ((turnError - turnPrevError) * turnkD);
+    turnDeriv = turnError - turnPrevError;
+    
+    lateralPower = (error * kP) + (totalError * kI) + (lateralDeriv * kD);
+    turnPower = (turnError * turnkP) + (turnTotalError * turnkI) + (turnDeriv * turnkD);
 
     FL.spin(forward, lateralPower + turnPower, volt);
     FR.spin(forward, lateralPower - turnPower, volt);
     BL.spin(forward, lateralPower + turnPower, volt);
     BR.spin(forward, lateralPower - turnPower, volt);
+    
     prevError = error;
     turnPrevError = turnError;
-    
-    std::cout << Inertial10.angle(deg);
-    std::cout << std::endl;
-    //std::cout << turnTotalError;
-    //std::cout << std::endl;
-
-    wait(20, msec);
+    wait(10, msec);
   }
   return 0;
 }
 
-void auton() {
-  task aut_drivePID(drivePID);
-  while (Inertial10.isCalibrating()) {
-	  wait(20,msec);
-  }
-  resetEncoders();
+void resetSensors() {
+  void suspend(int drivePID);
+  desiredValue = 0;
+  desiredTurnValue = 0;
+  LEncoder.setPosition(0, deg);
+  REncoder.setPosition(0, deg);
+  Inertial10.setHeading(0, deg);
+  void resume(int drivePID);
+}
 
-  //fullfield: 10200
-  turnL(2);
-  move(400);
-  intakeroller.spinFor(-200,deg);
-    wait(500,msec);
-  move(-600);
-  turnL(100);
-  move(600);
+void move(double moving, int waitTime) {
+  resetSensors();
+  desiredValue = moving;
+  wait(waitTime, msec);
+}
+
+void turnLR(double turning, int waitTime) {
+  resetSensors();
+  desiredTurnValue = turning;
+  wait(waitTime, msec);
+}
+
+double RPM;
+double lowPower;
+double error;
+double dRPM = 500;
+double integralStart = 10;
+double totalError;
+double spinPower;
+double kp = 0.5;
+double ki = 0.01;
+double kd = 0.5;
+double prevError;
+int runFlywheelAt() {
+  while (true) {
+    error = dRPM - (-1 * flywheel.velocity(rpm));
+    std::cout << error << std::endl;
+    if (abs(error) < integralStart) {
+      totalError += error;
+    }
+    else {
+      totalError = 0;
+    }
+    spinPower = (error * kp) + (totalError * ki) + ((error - prevError) * kd);
+    if (spinPower < 0) {
+      spinPower = 0;
+    }
+    flywheel.spin(reverse, spinPower, volt);
+    flywheel2.spin(reverse, spinPower, volt);
+    prevError = error;
+  }
+  /*
+  double spinPower;
+  while (true) {
+    spinPower = (abs(flywheel.velocity(rpm)) <= RPM) ? 12 : lowPower;
+    flywheel.spin(reverse, spinPower, volt);
+    flywheel2.spin(reverse, spinPower, volt);
+    wait(10,msec);
+  }
+  */
+}
+
+void runFlywheel(double rpm, double adj) {
+  RPM = rpm;
+  lowPower = adj;
+  task::resume(runFlywheelAt);
+}
+
+void stopFlywheel() {
+  task::suspend(runFlywheelAt);
+  flywheel.stop();
+  flywheel2.stop();
+}
+
+void indexerShoot(double shots, int indTime) {
+  for (int i = 0; i < shots; i++) {
+    indexer.spin(reverse, 10, volt);
+    wait(90,msec);
+    indexer.spin(forward, 10, volt);
+    wait(90,msec);
+    indexer.stop();
+    if (shots - 1 != i) {
+      wait(indTime,msec);
+    }
+  }
+}
+
+int autonIntake() {
+  while (true) {
+    intakeroller.spin(forward, 10, volt);
+  }
+}
+
+void runIntake() {
+  task::resume(autonIntake);
+}
+
+void stopIntake() {
+  task::suspend(autonIntake);
+  intakeroller.stop();
+}
+
+int autonRoller() {
+  while (true) {
+    intakeroller.spin(reverse, 12, volt);
+  }
+}
+
+void runRoller() {
+  task::resume(autonRoller);
+}
+
+void stopRoller() {
+  task::suspend(autonRoller);
+  intakeroller.stop();
+}
+void auton() { //fullfield: 5100
+  bool runComp = true;
+
+  task aut_drivePID(drivePID);
+
+  if (runComp) {
+    move(170, 700);
+    runRoller();
+    wait(300,msec);
+    stopRoller();
+    move(-170, 600);
+    turnLR(135, 1000);
+    move(1200, 700);
+    runIntake();
+    move(350, 2000);
+    stopIntake();
+    runFlywheel(490, 7.3);
+    turnLR(78, 800);
+    resetSensors(); //stop
+    wait(1200,msec);
+    indexerShoot(3, 800);
+    stopFlywheel();
+    turnLR(-78, 800);
+  }
 
   while (true) {
-    wait(100,msec);
+    wait(100, msec);
   }
 }
