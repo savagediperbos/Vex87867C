@@ -7,8 +7,8 @@ competition Competition;
 
 int drivetrainSpeed = 75; // percentage of velocity drivetrain runs at
 
-bool runAuton = false; // config to run auton or not
-bool runUsercontrol = true; // config to run auton or not
+bool runAuton = true; // config to run auton or not
+bool runUsercontrol = false; // config to run auton or not
 bool printSensorValues = false; // config to print sensor values or not
 
 int sensorValues() {

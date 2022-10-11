@@ -5,9 +5,9 @@
 // Flywheel Configuration
 double maxRPM = 400.0; // higher rpm value in toggle
 double minRPM = 300.0; // lower rpm value in toggle
-double kp = 0.25;
+double kp = 0.5;
 double ki = 0.01;
-double kd = 0.1;
+double kd = 0.5;
 double integralStart = 10; // rpm from desired when integral activates
 double desiredRPM = maxRPM;
 
@@ -39,8 +39,8 @@ int indexerShoot() {
   while (true) {
     if (Controller1.ButtonR1.pressing()) {
       // activates indexer and shoots one time
-      indexer.spinFor(-51.0, degrees, 200, rpm);
-      indexer.spinFor(51.0, degrees, 200, rpm);
+      indexer.spinFor(-43.0, degrees, 200, rpm);
+      indexer.spinFor(46.0, degrees, 200, rpm);
     }
   }
 }

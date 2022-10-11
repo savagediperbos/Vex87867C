@@ -3,19 +3,19 @@
 #include <iostream>
 
 // Drivetrain PID Configuration
-double kP = 0.0105; // proportional component - improve rise and settling time
-double kI = 0.016; // integral component - corrects undershooting
-double kD = 0.04; // derivative component - speeds up and slows down (dampener)
-double turnkP = 0.05;
-double turnkI = 0.0;
-double turnkD = 0;
+double kP = 0.011; // proportional component - improve rise and settling time
+double kI = 0.002; // integral component - corrects undershooting
+double kD = 0.06; // derivative component - speeds up and slows down (dampener)
+double turnkP = 0.115;
+double turnkI = 0.0048;
+double turnkD = 0.2;
 
 // integral caps
 double maxIntegral = 300;
 double maxTurnIntegral = 300;
 
-double integralBound = 3; // If error is outside the bounds, then apply the integral. This is a buffer with +-integralBound degrees
-double turnBound = 10;
+double integralBound = 40; // If error is outside the bounds, then apply the integral. This is a buffer with +-integralBound degrees
+double turnBound = 15;
 double averagePosition;
 
 // motor values
@@ -23,8 +23,8 @@ double lateralPower;
 double turnPower;
 
 // auton settings
-double desiredValue = 0;
-double desiredTurnValue = 0;
+double desiredValue;
+double desiredTurnValue;
 
 // PID calculations
 double error; // sensorvalue (current) - desiredValue : positional value -> speed -> acc
@@ -50,17 +50,24 @@ double signnum_c(double x) { //evaluate later
 }
 
 void resetEncoders() {
+  void suspend(int drivePID);
+  desiredValue = 0;
+  desiredTurnValue = 0;
   LEncoder.setPosition(0,deg);
   REncoder.setPosition(0,deg);
   Inertial10.setRotation(0,deg); //try setHeading if doesnt work
-  desiredValue = 0;
-  desiredTurnValue = 0;
+  void resume(int drivePID);
 }
 
-void moveTurn(double moving, double turning) {
+void move(double moving) {
   desiredValue = moving;
-  desiredTurnValue = turning;
   wait(500,msec);
+  resetEncoders();
+}
+
+void turnL(double turning) {
+  desiredTurnValue = turning;
+  wait(2000,msec);
   resetEncoders();
 }
 
@@ -74,7 +81,7 @@ int drivePID() {
     else {
       totalError = 0; 
     }
-    //totalError = abs(totalError) > maxIntegral ? signnum_c(totalError) * maxIntegral : totalError;
+    totalError = abs(totalError) > maxIntegral ? signnum_c(totalError) * maxIntegral : totalError;
     lateralPower = (error * kP) + (totalError * kI) + ((error - prevError) * kD);
     
     turnError = desiredTurnValue - Inertial10.angle(degrees);
@@ -84,7 +91,7 @@ int drivePID() {
     else {
       turnTotalError = 0;
     }
-    //turnTotalError = abs(turnTotalError) > maxIntegral ? signnum_c(turnTotalError) * maxIntegral : turnTotalError;
+    turnTotalError = abs(turnTotalError) > maxTurnIntegral ? signnum_c(turnTotalError) * maxTurnIntegral : turnTotalError;
     turnPower = (turnError * turnkP) + (turnTotalError * turnkI) + ((turnError - turnPrevError) * turnkD);
 
     FL.spin(forward, lateralPower + turnPower, volt);
@@ -94,9 +101,9 @@ int drivePID() {
     prevError = error;
     turnPrevError = turnError;
     
-    std::cout << Inertial10.angle(degrees);
+    std::cout << Inertial10.angle(deg);
     std::cout << std::endl;
-    //std::cout << turnError;
+    //std::cout << turnTotalError;
     //std::cout << std::endl;
 
     wait(20, msec);
@@ -112,12 +119,13 @@ void auton() {
   resetEncoders();
 
   //fullfield: 10200
-  //moveTurn(400,0);
-  //intakeroller.spinFor(-200,deg);
-  //  wait(500,msec);
-  //moveTurn(-400,0);
-  moveTurn(0,100);
-  //moveTurn(600,0);
+  turnL(2);
+  move(400);
+  intakeroller.spinFor(-200,deg);
+    wait(500,msec);
+  move(-600);
+  turnL(100);
+  move(600);
 
   while (true) {
     wait(100,msec);
