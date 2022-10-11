@@ -30,7 +30,6 @@ int drivePID() { // PROGRAM TO CALCULATE FIRST ITERATION LASTERROR RESET
   double lateralDeriv;
   double turnDeriv;
   while (enableDrivePID) {
-    
     averagePosition = -0.5 * (LEncoder.position(deg) + REncoder.position(deg));
     if (Inertial10.angle(deg) <= 180) {
       adjAngle = Inertial10.angle(deg);
@@ -96,34 +95,7 @@ void turnLR(double turning, int waitTime) {
 
 double RPM;
 double lowPower;
-double error;
-double dRPM = 500;
-double integralStart = 10;
-double totalError;
-double spinPower;
-double kp = 0.5;
-double ki = 0.01;
-double kd = 0.5;
-double prevError;
 int runFlywheelAt() {
-  while (true) {
-    error = dRPM - (-1 * flywheel.velocity(rpm));
-    std::cout << error << std::endl;
-    if (abs(error) < integralStart) {
-      totalError += error;
-    }
-    else {
-      totalError = 0;
-    }
-    spinPower = (error * kp) + (totalError * ki) + ((error - prevError) * kd);
-    if (spinPower < 0) {
-      spinPower = 0;
-    }
-    flywheel.spin(reverse, spinPower, volt);
-    flywheel2.spin(reverse, spinPower, volt);
-    prevError = error;
-  }
-  /*
   double spinPower;
   while (true) {
     spinPower = (abs(flywheel.velocity(rpm)) <= RPM) ? 12 : lowPower;
@@ -131,7 +103,6 @@ int runFlywheelAt() {
     flywheel2.spin(reverse, spinPower, volt);
     wait(10,msec);
   }
-  */
 }
 
 void runFlywheel(double rpm, double adj) {
@@ -188,29 +159,121 @@ void stopRoller() {
   task::suspend(autonRoller);
   intakeroller.stop();
 }
+
 void auton() { //fullfield: 5100
-  bool runComp = true;
+  bool runComp1 = false; //3 stack side
+  bool runComp2 = false; //middle start side
+  bool runSkills = true;
 
   task aut_drivePID(drivePID);
 
-  if (runComp) {
-    move(170, 700);
+  if (runComp1) {
+    move(160, 300);
     runRoller();
-    wait(300,msec);
+    wait(200,msec);
     stopRoller();
-    move(-170, 600);
-    turnLR(135, 1000);
+    move(-140, 300);
+    turnLR(-135, 800);
     move(1200, 700);
     runIntake();
-    move(350, 2000);
-    stopIntake();
-    runFlywheel(490, 7.3);
-    turnLR(78, 800);
+    wait(200,msec);
+    move(100, 300);
+    move(-250, 400);
+    runFlywheel(593, 6);
+    turnLR(-77, 600);
+    move(150, 400);
     resetSensors(); //stop
-    wait(1200,msec);
-    indexerShoot(3, 800);
+    wait(1000,msec);
+    indexerShoot(3, 700);
+    wait(300,msec);
     stopFlywheel();
-    turnLR(-78, 800);
+    move(-150, 400);
+    turnLR(77, 600);
+    move(1000, 1000);
+    runFlywheel(583, 6);
+    turnLR(-86, 700);
+    move(300, 400);
+    resetSensors(); //stop
+    wait(1000,msec);
+    indexerShoot(2, 700);
+    stopIntake();
+    wait(400,msec);
+    stopFlywheel();
+  }
+
+  if (runComp2) {
+    move(900, 500);
+    runIntake();
+    wait(500,msec);
+    move(200, 300);
+    runFlywheel(610, 8);
+    turnLR(30, 600);
+    move(400, 400);
+    resetSensors(); //stop
+    wait(500,msec);
+    indexerShoot(3, 1000);
+    wait(300,msec);
+    stopFlywheel();
+    move(-400, 400);
+    turnLR(-70, 800);
+    move(1300, 800);
+    runFlywheel(610, 8);
+    wait(500,msec);
+    turnLR(90, 800);
+    move(300, 400);
+    resetSensors(); //stop
+    wait(500,msec);
+    indexerShoot(2, 1000);
+    wait(300,msec);
+    stopFlywheel();
+    stopIntake();
+    turnLR(90, 800);
+    move(2900, 1600);
+    turnLR(45, 400);
+    runRoller();
+    move(200, 500);
+    stopRoller();
+  }
+
+  if (runSkills) {
+    runRoller();
+    move(250, 200);
+    wait(100,msec);
+    move(-720, 800);
+    stopRoller();
+    runIntake();
+    turnLR(97, 800);
+    move(500, 1000);
+    move(650, 1000);
+    stopIntake();
+    runRoller();
+    move(150,200);
+    wait(100,msec);
+    move(-300, 800);
+    stopRoller();
+    runIntake();
+    turnLR(97, 800);
+    move(2150, 2000);
+    stopIntake();
+    runFlywheel(295, 7);
+    resetSensors(); //stop
+    wait(500,msec);
+    indexerShoot(3, 200);
+    wait(300,msec);
+    stopFlywheel();
+    move(-1400, 1400);
+    turnLR(49, 800);
+    runIntake();
+    move(1400, 900);
+    move(1400, 1500);
+    turnLR(-97, 800);
+    stopIntake();
+    runFlywheel(295, 7);
+    resetSensors(); //stop
+    wait(500,msec);
+    indexerShoot(3, 200);
+    wait(300,msec);
+    stopFlywheel();
   }
 
   while (true) {

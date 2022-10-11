@@ -20,3 +20,4 @@ motor flywheel = motor(PORT18, ratio6_1, true);
 motor flywheel2 = motor(PORT19, ratio6_1, false);
 motor indexer = motor(PORT17, ratio18_1, true);
 inertial Inertial10 = inertial(PORT10);
+digital_out expansion = digital_out(Brain.ThreeWirePort.H);
