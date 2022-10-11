@@ -16,4 +16,5 @@ extern motor flywheel;
 extern motor indexer;
 
 
-void driverControl(void);
+void driverControl();
+void auton();
