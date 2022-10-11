@@ -24,7 +24,7 @@
 // indexer              motor         19              
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
-#include "vex.h"
+#include <vex.h>
 #include <cmath>
 #include <iostream>
 
@@ -195,34 +195,8 @@ void usercontrol(void) {
   BR.setStopping(coast);
   BL.setStopping(coast);
 
-  while (true) {
-    // turn controls
-    FR.spin(forward, Controller1.Axis3.value() - Controller1.Axis1.value() - Controller1.Axis4.value(), percent);
-    BR.spin(forward, Controller1.Axis3.value() - Controller1.Axis1.value() + Controller1.Axis4.value(), percent);
-    FL.spin(forward, Controller1.Axis3.value() + Controller1.Axis1.value() + Controller1.Axis4.value(), percent);
-    BL.spin(forward, Controller1.Axis3.value() + Controller1.Axis1.value() - Controller1.Axis4.value(), percent);
-
-    // encoders track robot's position
-    //printf("%f \n",LEncoder.position(turns));
-    //printf("%f \n",REncoder.position(turns));
-    //printf("%f \n",FEncoder.position(turns));
-
-    if (Controller1.ButtonR1.pressing()) {
-      // shoots one time
-      indexer.spinFor(forward,95.0,degrees);
-      wait(40, msec);
-      indexer.spinFor(reverse,95.0,degrees);
-    }
-
-    if (Controller1.ButtonR2.pressing()) {
-      // shoots three times
-      for (int iter=0; iter<3; iter++) {
-        indexer.spinFor(forward,95.0,degrees);
-        wait(40, msec);
-        indexer.spinFor(reverse,95.0,degrees);
-      }
-    }
-  }
+  //while (true) {
+  //}
 }
 
 int main() {

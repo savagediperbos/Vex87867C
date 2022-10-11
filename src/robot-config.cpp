@@ -1,4 +1,5 @@
-#include "vex.h"
+#include <vex.h>
+#include <iostream>
 
 using namespace vex;
 using signature = vision::signature;
@@ -23,23 +24,41 @@ motor indexer = motor(PORT19, ratio18_1, false);
 
 // Configuration
 double maxRPM = 400.0; // the assigned maximum value rpm for the flywheel, default value
-double minRPM = 250.0; // the assigned minimum value rpm for the flywheel, activated by using the toggle
+double minRPM = 300.0; // the assigned minimum value rpm for the flywheel, activated by using the toggle
 double fD = 50.0; // distance from desired rpm at which flywheel starts decreasing in rpm
 
 // Status trackers
+int curCommand; //DO NOT TOUCH - keeps track of intake function ran
+int lastCommand; //DO NOT TOUCH - keeps track of previous intake function ran
 double desiredRPM = maxRPM; // DO NOT TOUCH - rpm at which the flywheel is designated to spin, maximum rpm
 double limiter = 0.0; // DO NOT TOUCH - limiter/value subtracted from flywheel rpm
 bool flywheelVelocityMax = true; // DO NOT TOUCH - keeps track of flywheel desired rpm for rpm toggle
 bool remoteControlCodeEnabled = true; // DO NOT TOUCH - keeps track of remote controller enable/disable
 bool flywheelStopped = true; // DO NOT TOUCH - keeps track of flywheel motion status
 bool intakeStopped = true; //DO NOT TOUCH - keeps track of intake motion status
+bool runByForward; //DO NOT TOUCH - keeps track of intake activation status
+bool intakeIn; //DO NOT TOUCH - keeps track of intake spin direction
+bool firstIter = true; //DO NOT TOUCH - protects first iteration from intake wait time quota
 
 // define a task that will handle monitoring inputs from Controller1
 int rc_auto_loop_function_Controller1() {
   while (true) {
     if (remoteControlCodeEnabled) {
+
+      // turn controls
+      FR.spin(forward, Controller1.Axis3.value() - Controller1.Axis1.value() - Controller1.Axis4.value(), percent);
+      BR.spin(forward, Controller1.Axis3.value() - Controller1.Axis1.value() + Controller1.Axis4.value(), percent);
+      FL.spin(forward, Controller1.Axis3.value() + Controller1.Axis1.value() + Controller1.Axis4.value(), percent);
+      BL.spin(forward, Controller1.Axis3.value() + Controller1.Axis1.value() - Controller1.Axis4.value(), percent);
+
+      if (Controller1.ButtonR1.pressing()) {
+        // activates indexer and shoots one time
+        indexer.spinFor(forward,95.0,degrees);
+        indexer.spinFor(reverse,95.0,degrees);
+      }
+
       if (Controller1.ButtonB.pressing()) {
-        // allows for consistent flywheel rpm - flywheel pid
+        // controls flywheel activation and allows for consistent flywheel rpm - flywheel pid
         if (flywheel.velocity(rpm) > (desiredRPM - fD)) {
           limiter = flywheel.velocity(rpm) - desiredRPM + fD;
         }
@@ -65,30 +84,50 @@ int rc_auto_loop_function_Controller1() {
           flywheelVelocityMax = true;
         }
       }
-
-      if (Controller1.ButtonL1.pressing() && !Controller1.ButtonL2.pressing()) {
-      // intake in
-        intakeroller.spin(forward);
-        intakeStopped = false;
-        wait(5, msec);
-      }
-      else if (Controller1.ButtonL1.pressing() && !intakeStopped) {
-        intakeroller.spinFor(forward, 95.0, degrees);
-        intakeroller.stop();
+      
+      if (Controller1.ButtonL1.pressing() && !intakeStopped && runByForward) {
+      // toggles intake/roller activation and direction
         intakeStopped = true;
+        intakeIn = true;
+        curCommand = 1;
       }
-
-      if (Controller1.ButtonL2.pressing() && !Controller1.ButtonL1.pressing()) {
-      // intake out
+      else if (Controller1.ButtonL1.pressing()) {
+        intakeStopped = false;
+        intakeIn = true;
+        runByForward = true;
+        curCommand = 2;
+      }
+      else if (Controller1.ButtonL2.pressing() && !intakeStopped && !runByForward) {
+        intakeStopped = true;
+        intakeIn = false;
+        curCommand = 3;
+      }
+      else if (Controller1.ButtonL2.pressing()) {
+        intakeStopped = false;
+        intakeIn = false;
+        runByForward = false;
+        curCommand = 4;
+      }
+      if (!intakeStopped && !intakeIn) {
         intakeroller.spin(reverse);
-        intakeStopped = false;
-        wait(5, msec);
       }
-      else if (Controller1.ButtonL2.pressing() && !intakeStopped) {
-        intakeroller.spinFor(reverse, 95.0, degrees);
+      else if (!intakeStopped && intakeIn) {
+        intakeroller.spin(forward);
+      }
+      else if (intakeStopped) {
         intakeroller.stop();
-        intakeStopped = true;
       }
+      if (curCommand != lastCommand && !firstIter) {
+        wait(200, msec);
+      }
+      firstIter = false;
+      lastCommand = curCommand;
+
+      // prints encoder information - track robot's position
+      std::cout << "LEncoder: " << LEncoder.position(turns) << std::endl;
+      std::cout << "REncoder: " << REncoder.position(turns) << std::endl;
+      std::cout << "FEncoder: " << FEncoder.position(turns) << std::endl;
+
     }
     wait(20, msec); // checks conditions every 20 milliseconds
   }
