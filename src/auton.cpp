@@ -38,11 +38,10 @@ int turnPrevError = 0; // position 20 miliseconds ago
 int turnDerivative; // error - prevError : speed
 int turnTotalError = 0; // totalError = totalError + error
 
-// DO NOT TOUCH - bool for starting/ending auton
+// DO NOT TOUCH - toggle booleans
 bool enableDrivePID = true;
 
 double signnum_c(double x) {
-  // checks values so total errors remain positive
   if (x > 0.0) {
     return 1.0;
   }
@@ -52,27 +51,33 @@ double signnum_c(double x) {
   return x;
 }
 
-void resetEncoders() {
+void resetSensors() {
   // resets shaft encoder data
-  LEncoder.setPosition(0, degrees);
-  REncoder.setPosition(0, degrees);
-  FEncoder.setPosition(0, degrees);
+  FL.setPosition(0, degrees);
+  FR.setPosition(0, degrees);
 }
-
 int drivePID() {
-  // autonomous movement and corrects robot's movement values
+
   while (enableDrivePID) {
-    leftMotorSide = LEncoder.position(degrees);
-    rightMotorSide = REncoder.position(degrees);
-    frontSide = FEncoder.position(degrees);
+
+    // make movements more consistent - brake mode holds position
+    BL.setStopping(brake);
+    FL.setStopping(brake);
+    BR.setStopping(brake);
+    FR.setStopping(brake);
+
+    // get robot's position via shaft encoders
+    leftMotorSide = FL.position(degrees);
+    rightMotorSide = FR.position(degrees);
 
     averagePosition = leftMotorSide + rightMotorSide;
 
     error = desiredValue - averagePosition;
 
-    derivative = error - prevError;
+    derivative = error - prevError; // calculates the derivative value
 
     if (abs(error) < integralBound) {
+      // calculates the integral value
       totalError += error; 
     }
     else {
@@ -88,7 +93,8 @@ int drivePID() {
     turnDerivative = turnError - turnPrevError;
     turnTotalError += turnError;
 
-    // caps the integral
+    // this would cap the integral
+    // ? = conditional operator
     turnTotalError = abs(turnTotalError) > maxIntegral ? signnum_c(turnTotalError) * maxIntegral : turnTotalError;
 
     turnMotorPower = turnError * turnkP + turnDerivative * turnkD + turnTotalError * turnkI;
@@ -102,25 +108,12 @@ int drivePID() {
     turnPrevError = turnError;
 
     wait(20, msec);
+
   }
   return 0;
 }
 
-void moveTurn(double moving, double turning) {
-  // sets a straight or turning movement
-  desiredValue = moving;
-  desiredTurnValue = turning;
-}
+//auton setting
 
-void auton() {
-  // makes movements more consistent - brake mode holds position
-  FL.setStopping(brake);
-  FR.setStopping(brake);
-  BL.setStopping(brake);
-  BR.setStopping(brake);
-
-  task aut_drivePID(drivePID);
-  resetEncoders();
-
-  moveTurn(2000,0);
+void fullFieldDrive(void) {
 }

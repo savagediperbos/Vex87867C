@@ -54,28 +54,4 @@
  * Used to initialize code/tasks/devices added using tools in VEXcode Pro.
  * 
  * This should be called at the start of your int main function.
-
- 
-//auton setting
-void fullFieldDrive(void) {
-  desiredTurnValue = 0;
-  desiredValue = 2400; //untuned
-}
-
-
-
-
-void AutonRedRight(void) {
-  //auton for red rightside
-}
-void AutonRedLeft(void) {
-  //auton for red leftside
-}
-void AutonBlueRight(void) {
-  //auton for blue rightside
-}
-void AutonBlueLeft(void) {
-  //auton for blue leftside
-}
-
  */

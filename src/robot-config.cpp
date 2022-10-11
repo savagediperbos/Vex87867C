@@ -20,4 +20,5 @@ encoder REncoder = encoder(Brain.ThreeWirePort.A);
 encoder FEncoder = encoder(Brain.ThreeWirePort.E);
 motor intakeroller = motor(PORT15, ratio18_1, false);
 motor flywheel = motor(PORT18, ratio6_1, true);
+motor flywheel2 = motor(PORT19, ratio6_1, false);
 motor indexer = motor(PORT17, ratio18_1, true);

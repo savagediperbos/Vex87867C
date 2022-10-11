@@ -13,8 +13,10 @@ extern encoder REncoder;
 extern encoder FEncoder;
 extern motor intakeroller;
 extern motor flywheel;
+extern motor flywheel2;
 extern motor indexer;
 
 
-void driverControl();
-void auton();
+
+void driverControl(void);
+void auton(void);
