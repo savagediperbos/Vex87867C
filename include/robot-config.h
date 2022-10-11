@@ -11,7 +11,7 @@ extern controller Controller1;
 extern inertial Inertial21;
 extern encoder LEncoder;
 extern encoder REncoder;
-extern encoder BEncoder;
+extern encoder FEncoder;
 extern motor intakeroller;
 extern motor flywheel;
 extern motor indexer;

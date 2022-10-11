@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------------*/
 /*                                                                            */
 /*    Module:       main.cpp                                                  */
-/*    Author:       lukelu                                                    */
+/*    Authors:      Luke Lu, Daniel Yang                                      */
 /*    Created:      Sat Jul 16 2022                                           */
 /*    Description:  V5 project                                                */
 /*                                                                            */
@@ -18,7 +18,7 @@
 // Inertial21           inertial      21              
 // LEncoder             encoder       C, D            
 // REncoder             encoder       A, B            
-// BEncoder             encoder       E, F            
+// FEncoder             encoder       E, F            
 // intakeroller         motor         15              
 // flywheel             motor         18              
 // indexer              motor         19              
@@ -26,6 +26,7 @@
 
 #include "vex.h"
 #include <cmath>
+#include <iostream>
 
 using namespace vex;
 competition Competition;
@@ -49,7 +50,7 @@ int desiredTurnValue = 0;
 int ffb = desiredValue * 1.3; //field drive
 int flr = desiredTurnValue * 1.244; //field turn
 
-//smart calculation stuff
+//PID calculations
 int error; //sensorvalue (current) - Desiredvalue : positional value -> speed -> acc
 int prevError = 0; //position 20 miliseconds ago
 int derivative; // error - prevError : calculates Speed (speeding up and slowing down the robot)
@@ -63,7 +64,6 @@ int turnTotalError = 0; //totalError = totalError + error
 bool resetDriveSensors = false;
 //Variables modified for use
 bool enableDrivePID = true;
-bool flywheelVelocity100 = true;
 
 double signnum_c(double x) {
   if (x > 0.0) return 1.0;
@@ -84,13 +84,13 @@ int drivePID() {
       resetDriveSensors = false;
       LEncoder.setPosition(0, degrees);
       REncoder.setPosition(0, degrees);
-      BEncoder.setPosition(0, degrees);
+      FEncoder.setPosition(0, degrees);
     }
 
     //Get the position of both motors
     int leftMotorSide = LEncoder.position(degrees);
     int rightMotorSide = REncoder.position(degrees);
-    int backSide = BEncoder.position(degrees);
+    int backSide = FEncoder.position(degrees);
 
     int averagePosition = leftMotorSide;
     //int averagePosition = (leftMotorSide + rightMotorSide)/2;
@@ -135,8 +135,9 @@ int drivePID() {
 }
 int printEncoderValues() {
   while(enableDrivePID) {
-    printf("%f \n",LEncoder.position(degrees));
-    printf("%f \n",REncoder.position(degrees));
+    std::cout << "LEncoder: " << LEncoder.position(degrees) << std::endl; //prints left shaft encoder data
+    std::cout << "REncoder: " << REncoder.position(degrees) << std::endl; //prints right shaft encoder data
+    std::cout << "FEncoder: " << FEncoder.position(degrees) << std::endl; //prints front shaft encoder data
     vex::task::sleep(10);
   }
   return 1;
@@ -146,13 +147,6 @@ void fullFieldDrive(void) {
   desiredTurnValue = 0;
   desiredValue = 2400;
 }
-
-/* void Right90(void) {
-desiredTurnValue = 600;
-} 
-void Left90(void) {
-desiredTurnValue = -600;
-} */
 
 void AutonRedRight(void) {
   //auton for red rightside
@@ -183,10 +177,6 @@ void autonomous(void) {
   desiredTurnValue = 0;
   intakeroller.spinFor(reverse,220,degrees);
 
-
-
-
-
   //fullFieldDrive();
 
   //AutonRedRight
@@ -195,8 +185,9 @@ void autonomous(void) {
   //AutonBlueLeft
 }
 void usercontrol(void) {
+  // initial values config
   intakeroller.setVelocity(100,percent);
-  flywheel.setVelocity(55,percent);
+  flywheel.setVelocity(100,percent);
   indexer.setVelocity(100,percent);
   indexer.setStopping(hold);
   FR.setStopping(coast);
@@ -205,56 +196,30 @@ void usercontrol(void) {
   BL.setStopping(coast);
 
   while (true) {
-    /* turn controls */
+    // turn controls
     FR.spin(forward, Controller1.Axis3.value() - Controller1.Axis1.value() - Controller1.Axis4.value(), percent);
     BR.spin(forward, Controller1.Axis3.value() - Controller1.Axis1.value() + Controller1.Axis4.value(), percent);
     FL.spin(forward, Controller1.Axis3.value() + Controller1.Axis1.value() + Controller1.Axis4.value(), percent);
     BL.spin(forward, Controller1.Axis3.value() + Controller1.Axis1.value() - Controller1.Axis4.value(), percent);
 
-    /* encoder tracks robot's position */
-    printf("%f \n",LEncoder.position(turns));
-    printf("%f \n",REncoder.position(turns));
+    // encoders track robot's position
+    //printf("%f \n",LEncoder.position(turns));
+    //printf("%f \n",REncoder.position(turns));
+    //printf("%f \n",FEncoder.position(turns));
 
     if (Controller1.ButtonR1.pressing()) {
-      /* shoots one time */
-      indexer.spinFor(forward,95,degrees);
+      // shoots one time
+      indexer.spinFor(forward,95.0,degrees);
       wait(40, msec);
-      indexer.spinFor(reverse,95,degrees);
+      indexer.spinFor(reverse,95.0,degrees);
     }
+
     if (Controller1.ButtonR2.pressing()) {
-      /* shoots three times */
+      // shoots three times
       for (int iter=0; iter<3; iter++) {
-        indexer.spinFor(forward,95,degrees);
+        indexer.spinFor(forward,95.0,degrees);
         wait(40, msec);
-        indexer.spinFor(reverse,95,degrees);
-      }
-    }
-    if (Controller1.ButtonL1.pressing()) {
-      /* intake in */
-      intakeroller.spin(forward);
-      wait(5, msec);
-    }
-    if (Controller1.ButtonL2.pressing()) {
-      /* intake out/roller counterclockwise */
-      intakeroller.spin(reverse);
-      wait(5, msec);
-    }
-    if (Controller1.ButtonDown.pressing()) {
-      /* stop rollers/intake */
-      intakeroller.spinFor(forward, 95, degrees);
-      while (Controller1.ButtonDown.pressing()) {
-        intakeroller.stop();
-      }
-    }
-    if (Controller1.ButtonY.pressing()) {
-      /* toggles flywheel velocity between 100% (default) and 55% */
-      if (flywheelVelocity100 == true) {
-        flywheel.setVelocity(55, percent);
-        flywheelVelocity100 = false;
-      }
-      else if (flywheelVelocity100 == false) {
-        flywheel.setVelocity(100, percent);
-        flywheelVelocity100 = true;
+        indexer.spinFor(reverse,95.0,degrees);
       }
     }
   }
