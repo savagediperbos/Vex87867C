@@ -5,50 +5,63 @@
 using namespace vex;
 competition Competition;
 
-bool runAuton = false; //config to run auton or not
-bool runUsercontrol = true; //config to run auton or not
+int drivetrainSpeed = 75; // percentage of velocity drivetrain runs at
 
-void encoderValues(void) {
+bool runAuton = false; // config to run auton or not
+bool runUsercontrol = true; // config to run auton or not
+bool printSensorValues = false; // config to print sensor values or not
+
+int sensorValues() {
   while (true) {
-    //prints left shaft encoder data
-    std::cout << "LEncoder: " << LEncoder.position(degrees) << std::endl;
-    //prints right shaft encoder data
-    std::cout << "REncoder: " << REncoder.position(degrees) << std::endl;
-    //prints front shaft encoder data
-    std::cout << "FEncoder: " << FEncoder.position(degrees) << std::endl;
+    if (printSensorValues) {
+      // prints left shaft encoder data
+      std::cout << LEncoder.position(degrees) << std::endl;
+      // prints right shaft encoder data
+      std::cout << REncoder.position(degrees) << std::endl << std::endl;
+
+      wait(300,msec);
+    }
   }
 }
 
-void pre_auton(void) {
+void pre_auton() {
   // initial config
+  FL.setVelocity(drivetrainSpeed,percent);
+  FR.setVelocity(drivetrainSpeed,percent);
+  BL.setVelocity(drivetrainSpeed,percent);
+  BR.setVelocity(drivetrainSpeed,percent);
   intakeroller.setVelocity(100,percent);
   flywheel.setVelocity(100,percent);
-  
   indexer.setVelocity(100,percent);
+
   indexer.setStopping(hold);
-  FR.setStopping(coast);
-  FL.setStopping(coast);
-  BR.setStopping(coast);
-  BL.setStopping(coast);
 }
 
-void aut(void) {
+void aut() {
   if (runAuton) {
+    FL.setStopping(brake);
+    FR.setStopping(brake);
+    BL.setStopping(brake);
+    BR.setStopping(brake);
     auton();
   }
 }
 
-void usercontrol(void) {
+void usercontrol() {
   if (runUsercontrol) {
+    FL.setStopping(coast);
+    FR.setStopping(coast);
+    BL.setStopping(coast);
+    BR.setStopping(coast);
     driverControl();
   }
 }
 
 int main() {
+  //task sensorData(sensorValues);
   pre_auton();
-  runUsercontrol;
+  aut();
   Competition.drivercontrol(usercontrol);
-  //encoderValues();
 
   while (true) {
     wait(20, msec);

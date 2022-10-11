@@ -1,47 +1,45 @@
 #include <vex.h>
 #include <robot-config.h>
+#include <iostream>
 
-double kP = 0.1; // proportional component - improve rise and settling time
-double kI = 0.02; // integral component - corrects undershooting
-double kD = 0.05; // derivative component - speeds up and slows down (dampener)
+// Drivetrain PID Configuration
+double kP = 0.0105; // proportional component - improve rise and settling time
+double kI = 0.016; // integral component - corrects undershooting
+double kD = 0.04; // derivative component - speeds up and slows down (dampener)
 double turnkP = 0.05;
-double turnkI = 0.02;
-double turnkD = 0.05;
+double turnkI = 0.0;
+double turnkD = 0;
 
 // integral caps
-int maxIntegral = 300;
-int maxTurnIntegral = 300;
+double maxIntegral = 300;
+double maxTurnIntegral = 300;
 
-int integralBound = 3; // If error is outside the bounds, then apply the integral. This is a buffer with +-integralBound degrees
-int leftMotorSide;
-int rightMotorSide;
-int frontSide;
-int averagePosition;
+double integralBound = 3; // If error is outside the bounds, then apply the integral. This is a buffer with +-integralBound degrees
+double turnBound = 10;
+double averagePosition;
 
 // motor values
-double lateralMotorPower;
-int turnDifference;
-double turnMotorPower;
+double lateralPower;
+double turnPower;
 
 // auton settings
-int desiredValue;
-int desiredTurnValue;
+double desiredValue = 0;
+double desiredTurnValue = 0;
 
 // PID calculations
-int error; // sensorvalue (current) - desiredValue : positional value -> speed -> acc
-int prevError = 0; // position 20 miliseconds ago
-int derivative; // error - prevError : calculates Speed (speeding up and slowing down the robot)
-int totalError = 0; // totalError = totalError + error (keeps adding error/ covenrts position into absement)
+double error; // sensorvalue (current) - desiredValue : positional value -> speed -> acc
+double prevError = 0; // position 20 miliseconds ago
+double totalError = 0; // totalError = totalError + error (keeps adding error/ covenrts position into absement)
 
-int turnError; // sensorValue - desiredValue : position
-int turnPrevError = 0; // position 20 miliseconds ago
-int turnDerivative; // error - prevError : speed
-int turnTotalError = 0; // totalError = totalError + error
+double turnError; // sensorValue - desiredValue : position
+double turnPrevError = 0; // position 20 miliseconds ago
+double turnTotalError = 0; // totalError = totalError + error
 
-// DO NOT TOUCH - toggle booleans
+// DO NOT TOUCH - bool for starting/ending auton
 bool enableDrivePID = true;
 
-double signnum_c(double x) {
+double signnum_c(double x) { //evaluate later
+  // checks values so total errors remain positive
   if (x > 0.0) {
     return 1.0;
   }
@@ -51,69 +49,77 @@ double signnum_c(double x) {
   return x;
 }
 
-void resetSensors() {
-  // resets shaft encoder data
-  FL.setPosition(0, degrees);
-  FR.setPosition(0, degrees);
+void resetEncoders() {
+  LEncoder.setPosition(0,deg);
+  REncoder.setPosition(0,deg);
+  Inertial10.setRotation(0,deg); //try setHeading if doesnt work
+  desiredValue = 0;
+  desiredTurnValue = 0;
 }
+
+void moveTurn(double moving, double turning) {
+  desiredValue = moving;
+  desiredTurnValue = turning;
+  wait(500,msec);
+  resetEncoders();
+}
+
 int drivePID() {
-
   while (enableDrivePID) {
-
-    // make movements more consistent - brake mode holds position
-    BL.setStopping(brake);
-    FL.setStopping(brake);
-    BR.setStopping(brake);
-    FR.setStopping(brake);
-
-    // get robot's position via shaft encoders
-    leftMotorSide = FL.position(degrees);
-    rightMotorSide = FR.position(degrees);
-
-    averagePosition = leftMotorSide + rightMotorSide;
-
+    averagePosition = (-1 * LEncoder.position(degrees)) + (-1 * REncoder.position(degrees));
     error = desiredValue - averagePosition;
-
-    derivative = error - prevError; // calculates the derivative value
-
     if (abs(error) < integralBound) {
-      // calculates the integral value
       totalError += error; 
     }
     else {
       totalError = 0; 
     }
-
-    totalError = abs(totalError) > maxIntegral ? signnum_c(totalError) * maxIntegral : totalError;
-    lateralMotorPower = error * kP + derivative * kD + totalError * kI;
+    //totalError = abs(totalError) > maxIntegral ? signnum_c(totalError) * maxIntegral : totalError;
+    lateralPower = (error * kP) + (totalError * kI) + ((error - prevError) * kD);
     
-    turnDifference = leftMotorSide - rightMotorSide;
-    
-    turnError = desiredTurnValue - turnDifference;
-    turnDerivative = turnError - turnPrevError;
-    turnTotalError += turnError;
+    turnError = desiredTurnValue - Inertial10.angle(degrees);
+    if (abs(turnError) < turnBound) {
+      turnTotalError += turnError;
+    }
+    else {
+      turnTotalError = 0;
+    }
+    //turnTotalError = abs(turnTotalError) > maxIntegral ? signnum_c(turnTotalError) * maxIntegral : turnTotalError;
+    turnPower = (turnError * turnkP) + (turnTotalError * turnkI) + ((turnError - turnPrevError) * turnkD);
 
-    // this would cap the integral
-    // ? = conditional operator
-    turnTotalError = abs(turnTotalError) > maxIntegral ? signnum_c(turnTotalError) * maxIntegral : turnTotalError;
-
-    turnMotorPower = turnError * turnkP + turnDerivative * turnkD + turnTotalError * turnkI;
-
-    FL.spin(forward, lateralMotorPower + turnMotorPower, voltageUnits::volt);
-    FR.spin(forward, lateralMotorPower - turnMotorPower, voltageUnits::volt);
-    BL.spin(forward, lateralMotorPower + turnMotorPower, voltageUnits::volt);
-    BR.spin(forward, lateralMotorPower - turnMotorPower, voltageUnits::volt);
-
+    FL.spin(forward, lateralPower + turnPower, volt);
+    FR.spin(forward, lateralPower - turnPower, volt);
+    BL.spin(forward, lateralPower + turnPower, volt);
+    BR.spin(forward, lateralPower - turnPower, volt);
     prevError = error;
     turnPrevError = turnError;
+    
+    std::cout << Inertial10.angle(degrees);
+    std::cout << std::endl;
+    //std::cout << turnError;
+    //std::cout << std::endl;
 
     wait(20, msec);
-
   }
   return 0;
 }
 
-//auton setting
+void auton() {
+  task aut_drivePID(drivePID);
+  while (Inertial10.isCalibrating()) {
+	  wait(20,msec);
+  }
+  resetEncoders();
 
-void fullFieldDrive(void) {
+  //fullfield: 10200
+  //moveTurn(400,0);
+  //intakeroller.spinFor(-200,deg);
+  //  wait(500,msec);
+  //moveTurn(-400,0);
+  moveTurn(0,100);
+  //moveTurn(600,0);
+
+  while (true) {
+    wait(100,msec);
+  }
 }

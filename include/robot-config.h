@@ -7,16 +7,15 @@ extern motor FR;
 extern motor BL;
 extern motor BR;
 extern controller Controller1;
-extern inertial Inertial21;
 extern encoder LEncoder;
 extern encoder REncoder;
-extern encoder FEncoder;
 extern motor intakeroller;
 extern motor flywheel;
 extern motor flywheel2;
 extern motor indexer;
+extern inertial Inertial10;
 
 
 
-void driverControl(void);
-void auton(void);
+void driverControl();
+void auton();

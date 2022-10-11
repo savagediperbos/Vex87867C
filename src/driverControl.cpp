@@ -2,15 +2,14 @@
 #include <robot-config.h>
 #include <iostream>
 
-// Flywheel configuration
-double maxRPM = 350.0; // higher rpm value in toggle
-double minRPM = 270.0; // lower rpm value in toggle
-double fD = 150.0; // flywheel distance: rpm begins decrease at desiredRPM-fD
-double aF = 500.0; // acceleration factor: initial rpm addon; decreases falloff
-double fP = 2.0; // falloff proportion: increases falloff
-
-// Global tracker
-double desiredRPM = minRPM; // DO NOT TOUCH - currently set flywheel rpm
+// Flywheel Configuration
+double maxRPM = 400.0; // higher rpm value in toggle
+double minRPM = 300.0; // lower rpm value in toggle
+double kp = 0.25;
+double ki = 0.01;
+double kd = 0.1;
+double integralStart = 10; // rpm from desired when integral activates
+double desiredRPM = maxRPM;
 
 int frontLeft() {
   while (true) {
@@ -40,28 +39,43 @@ int indexerShoot() {
   while (true) {
     if (Controller1.ButtonR1.pressing()) {
       // activates indexer and shoots one time
-      indexer.spinFor(-95.0,degrees,200.0,rpm);
-      indexer.spinFor(96.0,degrees,200.0,rpm);
+      indexer.spinFor(-51.0, degrees, 200, rpm);
+      indexer.spinFor(51.0, degrees, 200, rpm);
     }
   }
 }
 
 int flywheelSpin() {
-  double limiter = 0; // DO NOT TOUCH - limiter/value subtracted from flywheel rpm
-  bool flywheelStopped = true; // DO NOT TOUCH - keeps track of flywheel motion status
+  double error = 0;
+  double prevError = 0;
+  double totalError = 0;
+  double spinPower = 0;
+  bool flywheelStopped = true; // keeps track of flywheel motion status
   while (true) {
     if (Controller1.ButtonB.pressing()) {
-      // controls flywheel activation and allows for consistent flywheel rpm - flywheel pid
-      if (fabs(flywheel.velocity(rpm)) > (desiredRPM - fD)) {
-        limiter = fabs(flywheel.velocity(rpm)) + fD - desiredRPM;
+      error = desiredRPM - (-1 * flywheel.velocity(rpm));
+      if (error != 0 && abs(error) < integralStart) {
+        totalError += error;
       }
-      flywheel.spin(reverse, desiredRPM + (aF / pow(sqrt(2.0), sqrt(limiter * fP))), rpm);
-      flywheel2.spin(reverse, desiredRPM + (aF / pow(sqrt(2.0), sqrt(limiter * fP))), rpm);
+      else {
+        totalError = 0;
+      }
+      spinPower = (error * kp) + (totalError * ki) + ((error - prevError) * kd);
+      if (spinPower < 0) {
+        spinPower = 0;
+      }
+      flywheel.spin(reverse, spinPower, volt);
+      flywheel2.spin(reverse, spinPower, volt);
+      prevError = error;
       flywheelStopped = false;
     }
     else if (!flywheelStopped) {
       flywheel.stop();
       flywheel2.stop();
+      error = 0;
+      prevError = 0;
+      totalError = 0;
+      spinPower = 0;
       flywheelStopped = true;
     }
   }
@@ -87,12 +101,12 @@ int flywheelToggle() {
 }
 
 int intakeToggle() {
-  bool intakeStopped = true; //DO NOT TOUCH - keeps track of intake motion status
-  bool runByForward; //DO NOT TOUCH - keeps track of intake activation status
-  bool intakeIn; //DO NOT TOUCH - keeps track of intake spin direction
-  bool firstIter = true; //DO NOT TOUCH - protects first iteration from intake wait time quota
-  int curCommand; //DO NOT TOUCH - keeps track of intake function ran
-  int lastCommand; //DO NOT TOUCH - keeps track of previous intake function ran
+  bool intakeStopped = true; // DO NOT TOUCH - keeps track of intake motion status
+  bool runByForward; // DO NOT TOUCH - keeps track of intake activation status
+  bool intakeIn; // DO NOT TOUCH - keeps track of intake spin direction
+  bool firstIter = true; // DO NOT TOUCH - protects first iteration from intake wait time quota
+  int curCommand; // DO NOT TOUCH - keeps track of intake function ran
+  int lastCommand; // DO NOT TOUCH - keeps track of previous intake function ran
   while (true) {
     if (Controller1.ButtonL1.pressing() && !intakeStopped && runByForward) {
       // toggles intake/roller activation and direction
