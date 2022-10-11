@@ -2,13 +2,15 @@
 #include <robot-config.h>
 #include <iostream>
 
-// Configuration
-double maxRPM = 350.0; // the assigned maximum value rpm for the flywheel, default value
-double minRPM = 200.0; // the assigned minimum value rpm for the flywheel, activated by using the toggle
-double fD = 100.0; // distance from desired rpm at which flywheel starts decreasing in rpm
+// Flywheel configuration
+double maxRPM = 350.0; // higher rpm value in toggle
+double minRPM = 270.0; // lower rpm value in toggle
+double fD = 150.0; // flywheel distance: rpm begins decrease at desiredRPM-fD
+double aF = 500.0; // acceleration factor: initial rpm addon; decreases falloff
+double fP = 2.0; // falloff proportion: increases falloff
 
-// Status tracker
-double desiredRPM = minRPM; // DO NOT TOUCH - rpm at which the flywheel is designated to spin, maximum rpm
+// Global tracker
+double desiredRPM = minRPM; // DO NOT TOUCH - currently set flywheel rpm
 
 int frontLeft() {
   while (true) {
@@ -53,8 +55,8 @@ int flywheelSpin() {
       if (fabs(flywheel.velocity(rpm)) > (desiredRPM - fD)) {
         limiter = fabs(flywheel.velocity(rpm)) + fD - desiredRPM;
       }
-      flywheel.spin(reverse, desiredRPM + (fD / sqrt(0.4 * limiter)), rpm);
-      flywheel2.spin(reverse, desiredRPM + (fD / sqrt(0.4 * limiter)), rpm);
+      flywheel.spin(reverse, desiredRPM + (aF / pow(sqrt(2.0), sqrt(limiter * fP))), rpm);
+      flywheel2.spin(reverse, desiredRPM + (aF / pow(sqrt(2.0), sqrt(limiter * fP))), rpm);
       flywheelStopped = false;
     }
     else if (!flywheelStopped) {
