@@ -14,10 +14,10 @@ void pre_auton() {
 }
 void aut() {
   if (runAuton) {
-    FL.setStopping(hold);
-    FR.setStopping(hold);
-    BL.setStopping(hold);
-    BR.setStopping(hold);
+    FL.setStopping(brake);
+    FR.setStopping(brake);
+    BL.setStopping(brake);
+    BR.setStopping(brake);
     auton();
   }
 }
