@@ -22,6 +22,7 @@ extern motor flywheel2;
 extern motor indexer;
 extern inertial Inertial10;
 extern digital_out expansion;
+extern motor_group flywheels;
 
 
 void driverControl();

@@ -4,8 +4,8 @@
 using namespace vex;
 competition Competition;
 
-bool runAuton = true; // config to run auton or not
-bool runUsercontrol = false; // config to run auton or not
+bool runAuton = false; // config to run auton or not
+bool runUsercontrol = true; // config to run auton or not
 
 void pre_auton() {
   while (Inertial10.isCalibrating()) {
@@ -21,7 +21,6 @@ void aut() {
     auton();
   }
 }
-
 void usercontrol() {
   if (runUsercontrol) {
     FL.setStopping(coast);
@@ -31,12 +30,11 @@ void usercontrol() {
     driverControl();
   }
 }
-
 int main() {
   pre_auton();
   //Competition.autonomous(aut);
-  aut();
   Competition.drivercontrol(usercontrol);
+  //usercontrol();
   while (true) {
     wait(20, msec);
   }
